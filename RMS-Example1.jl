@@ -15,13 +15,16 @@ macro bind(def, element)
 end
 
 # ╔═╡ 79bde88e-0788-4d67-975c-5d47b72846ff
-using PlutoUI, Plots, PlutoUI
+using PlutoUI, Plots, PlutoUI, LaTeXStrings
 
 # ╔═╡ b8fd235e-072b-4697-97a3-b537aba895f2
 md"""# Model of the vehicle
 The auxiliary code is hidden by default, to see the code put the cursor on top of the cell and press the eye to show or hide the code
 """
 
+
+# ╔═╡ 5516b798-bf15-4cc3-a190-dca31aea2304
+PlutoUI.TableOfContents()
 
 # ╔═╡ b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
 function medusa_model(yaw,u,v,r,a_s,a_p)
@@ -204,7 +207,7 @@ function course_control(x,y,ψ,u,v,r,t);
 end
 
 # ╔═╡ f2ba5c0e-4e1c-445f-80c6-cc141120d93e
-md"""# Proposal 3: Possition control
+md"""# Proposal 4: Possition control
 Now that we can go North we can go in any direction $\psi_r$ by chaging the origin of coordinates $\psi_r \to \psi - \psi_r$ as follws:
 
 
@@ -297,26 +300,26 @@ function show_figure(now,dt,Tf,control)
 
 	#trajectory in 2D plane
 	p1=plot(y',x',aspect_ratio=:equal,label="Trajectory")
-	xlabel!("y") #NED
-	ylabel!("x")
+	xlabel!(L"y") #NED
+	ylabel!(L"x")
 
     p1=paint_vehicle!(p1,x[n],y[n],yaw[n])
 	p1=scatter!(p1,[set_point[1]],[set_point[2]],label="Setpoint")
 
 
-	p2=plot(t,u',xlabel="time",ylabel="u",label=:none)
+	p2=plot(t,u',xlabel=L"t",ylabel=L"u",label=:none)
 	p2=scatter!(p2,[t[n]],[u[n]],label=:none)
 	
-	p3=plot(t,v',xlabel="time",ylabel="v",label=:none)
+	p3=plot(t,v',xlabel=L"t",ylabel=L"v",label=:none)
 	p3=scatter!(p3,[t[n]],[v[n]],label=:none)
 	
-	p4=plot(t,r',xlabel="time",ylabel="r",label=:none)
+	p4=plot(t,r',xlabel=L"t",ylabel=L"r",label=:none)
 	p4=scatter!(p4,[t[n]],[r[n]],label=:none)
 	
-	p5=plot(t,a_s',xlabel="time",ylabel="a_s",label=:none)
+	p5=plot(t,a_s',xlabel=L"t",ylabel=L"a_s",label=:none)
 	p5=scatter!(p5,[t[n]],[a_s[n]],label=:none)
 	
-	p6=plot(t,a_p',xlabel="time",ylabel="a_p",label=:none)
+	p6=plot(t,a_p',xlabel=L"t",ylabel=L"a_p",label=:none)
 	p6=scatter!(p6,[t[n]],[a_p[n]],label=:none)	
 	
 	l = @layout [a{0.5h} ; b c d; e f]
@@ -370,10 +373,12 @@ show_figure(t3,dt,Tf3,position_control2)
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
+LaTeXStrings = "~1.4.0"
 Plots = "~1.38.16"
 PlutoUI = "~0.7.51"
 """
@@ -384,7 +389,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "1a1c10d27f65718f0c0614916d7844b6516f3021"
+project_hash = "49afe5557bdc5c1903621ef67116125613389440"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -1507,9 +1512,11 @@ version = "1.8.1+0"
 
 # ╔═╡ Cell order:
 # ╟─b8fd235e-072b-4697-97a3-b537aba895f2
+# ╟─5516b798-bf15-4cc3-a190-dca31aea2304
 # ╟─b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
 # ╟─25a4d818-4cde-46b2-8af3-34f63647558a
 # ╟─d6d4ee7b-7a67-4ae6-9d72-4c21837b8182
+# ╟─e11b958e-fb9b-4811-9922-089c3e7aacae
 # ╠═79bde88e-0788-4d67-975c-5d47b72846ff
 # ╠═ae3961d4-be42-4268-b60f-653fe5842adc
 # ╠═be7d937c-2a46-49fe-bc66-49c650f7efb0
@@ -1518,7 +1525,6 @@ version = "1.8.1+0"
 # ╠═bde242a7-ebaa-45ad-b4c0-33b0913b3efe
 # ╠═91139377-20b7-428c-ae62-8be53d5eb685
 # ╠═bafae6ea-8a40-4009-8b62-c06f8db45ad4
-# ╟─e11b958e-fb9b-4811-9922-089c3e7aacae
 # ╠═89824c37-ea7c-4a2f-8090-ab0bd4166de9
 # ╠═ce9644c6-8c4d-4266-b12f-860c76cbfbc4
 # ╠═6b091abf-5e74-41ff-befc-6294d3fee671
