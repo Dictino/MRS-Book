@@ -1,17 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.20.0
+# v0.20.3
 
 using Markdown
 using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
+    #! format: off
     quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
+    #! format: on
 end
 
 # ╔═╡ 79bde88e-0788-4d67-975c-5d47b72846ff
@@ -28,10 +30,9 @@ PlutoUI.TableOfContents()
 
 # ╔═╡ b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
 function medusa_model(yaw,u,v,r,a_s,a_p)
-    #nota, la dinámica es independiente de x e y por eso sólo tengo como
-    #entrada yaw
-
-    #%%%%%%%%%%%%%% Trusters %%%%%%%%%%%%%
+    #dynamics do not depend on x and y so the only imput state is yaw
+    
+	# Trusters
     K=3.6e-3; 
     a_max=100.0; 
 
@@ -41,9 +42,7 @@ function medusa_model(yaw,u,v,r,a_s,a_p)
     Fs=K * abs(a_s)* a_s;
     Fp=K * abs(a_p)* a_p;
 
-    
-
-    #%%%%%%%%%%%%%% Dynamics %%%%%%%%%%%%%
+    # Dynamics
 
     #Mass, inertia and added masses
     m_u = 37.0; #Kg
@@ -51,36 +50,33 @@ function medusa_model(yaw,u,v,r,a_s,a_p)
     m_r = 4.64; #kg*m*m
     m_uv = m_u - m_v;
 
-    X_u = -0.2; # kg/s damping[0] 
-    Y_v = -55.1; # kg/s damping[1]
-    N_r = -4.14; # kg*m*m/s damping[5]
+    X_u = -0.2; # kg/s linear damping
+    Y_v = -55.1; # kg/s
+    N_r = -4.14; # kg*m*m/s
 
-    X_uu = -25.0; # Kg/m quadratic_damping[0] 
-    Y_vv = -101.3; # Kg/m quadratic_damping[1]
-    N_rr = -6.23; # Kg*m*m quadratic_damping[5]
+    X_uu = -25.0; # Kg/m quadratic_damping 
+    Y_vv = -101.3; # Kg/m 
+    N_rr = -6.23; # Kg*m*m 
 
 	# Dragg
     D_u = -X_u - X_uu*abs(u);
     D_v = -Y_v - Y_vv*abs(v);
     D_r = -N_r - N_rr*abs(r);
-#******************************************************************************
 	
 	# Force
     d=0.25;# m distance from the motor to the symetry axis
     tau_u=Fs+Fp; #Total force N
     tau_r=d*(Fp-Fs); # torque N*m
 	
-    # Dynamics
+    # Final Dynamics
     du = (tau_u + m_v*v*r - D_u*u)/m_u;
     dv = (-m_u*u*r - D_v*v)/m_v;
     dr = (tau_r + m_uv*u*v - D_r*r)/m_r;
 
     #Kinematics
-
     dx = u*cos(yaw) - v*sin(yaw);
     dy = u*sin(yaw) + v*cos(yaw);
     dyaw = r;
-#******************************************************************************
 
     return (dx,dy,dyaw,du,dv,dr)
 end
@@ -101,13 +97,14 @@ set_point=[0.0, 0.0] # x, y
 
 # ╔═╡ be7d937c-2a46-49fe-bc66-49c650f7efb0
 X0=[-20.0,10.0,0.0,0.0,0.0,0.0,0.0]
+#X0=[+20.0,10.0,0.0,0.0,0.0,0.0,0.0] #some interestings thigns to try
 
 # ╔═╡ 25e7d4b0-51aa-4064-ad7b-07593d75c628
 dt=0.1;
 
 # ╔═╡ b3727f46-35b9-40e3-8a86-811790f52e4b
 md"""# Proposal 1: Constant control
-Interact with the sliders to change the constant a0 and the current time to change the behaviour and see how the vehicle moves.
+Interact with the sliders to change the constant $a_0$ and the current time to change the behaviour and see how the vehicle moves.
 """
 
 
@@ -117,8 +114,13 @@ Tf1=100.0;
 # ╔═╡ bafae6ea-8a40-4009-8b62-c06f8db45ad4
 @bind t1 Slider(0:dt:Tf1; default=0, show_value=true)
 
+# ╔═╡ cf48693b-c5b1-44a9-a76b-cb534c6766b7
+md"Move the time slider to see in wicth direction the vehicle moves, 
+
+try positive and negative values of $a_0$"
+
 # ╔═╡ 89824c37-ea7c-4a2f-8090-ab0bd4166de9
-@bind a0 Slider(-100:0.1:100 ; default=60, show_value=true)
+@bind a0 Slider(-99.9:0.1:100 ; default=45, show_value=true)
 
 # ╔═╡ bde242a7-ebaa-45ad-b4c0-33b0913b3efe
 function constant_control(x,y,ψ,u,v,r,t)
@@ -151,7 +153,7 @@ Now the vehicle mooves in **some** direction but not necesary in the direction t
 """
 
 # ╔═╡ bb221b35-ec5a-4bad-a10b-3089b93117d9
-@bind Δa Slider(-100:0.1:100 ; default=30, show_value=true)
+@bind Δa Slider(-99.9:0.1:100 ; default=15, show_value=true)
 
 # ╔═╡ 1ece5497-5b5c-44e7-b1cf-fd51d131507a
 function asymmetric_control(x,y,ψ,u,v,r,t);
@@ -187,14 +189,14 @@ Note that now the control law switches when $\psi+\Delta \psi= n\pi$ instead of 
 
 Now you can **Try to adjust $\Delta \psi$ such that the vehicle goes north** (up in the figure) 
 
-**hint:** looking at the previous figure with the default values (press play on the slider to reset the defaults) the directioin at wicth the vehicle goes is close to -45º with could be a good initial guess.
+**hint:** looking at the previous figure with the default values (press play on the slider to reset the defaults) the directioin at wicth the vehicle goes is close to -60º with could be a good initial guess.
 """
 
 # ╔═╡ 1ec8a434-e187-4624-8499-1a31d83c0e6a
 @bind ofset Slider(-180:1.0:180 ; default=0, show_value=true)
 
 # ╔═╡ 91fb19e5-020c-4d1b-b3f8-ff96620b9df2
-md"To move the slider with preccision you can use the keyboard arrows"
+md"To move the slider with preccision **you can use the keyboard arrows**"
 
 # ╔═╡ a9b5698f-0a03-4a24-88d6-cc183c4825a2
 Δψ=ofset*pi/180
@@ -208,12 +210,14 @@ end
 
 # ╔═╡ f2ba5c0e-4e1c-445f-80c6-cc141120d93e
 md"""# Proposal 4: Possition control
-Now that we can go North we can go in any direction $\psi_r$ by chaging the origin of coordinates $\psi_r \to \psi - \psi_r$ as follws:
+Now that we can go North we can go in any direction $\psi_r$ by chaging the origin of coordinates $\psi \to \psi - \psi_r$ as follws:
 
 
 $a_p=a_0 + \Delta a \cdot sign(sin(\psi -\psi_r+\Delta \psi))$
 
-In witch direction $\psi_r$ we want to go? simple, go "straigth to the point", so we compute the relative orentaiton of the setpoint with respecto to the vehicle:
+In witch direction $\psi_r$ we want to go? 
+
+Simple, go "*straigth to the point*", so we compute the relative orentaiton of the setpoint with respect to the vehicle:
 
 $ψ_r=atan(y_r-y,x_r-x)$
 
@@ -306,7 +310,7 @@ function show_figure(now,dt,Tf,control)
     p1=paint_vehicle!(p1,x[n],y[n],yaw[n])
 	p1=scatter!(p1,[set_point[1]],[set_point[2]],label="Setpoint")
 
-
+    #evolucion of the state and control actions
 	p2=plot(t,u',xlabel=L"t",ylabel=L"u",label=:none)
 	p2=scatter!(p2,[t[n]],[u[n]],label=:none)
 	
@@ -1513,7 +1517,7 @@ version = "1.8.1+0"
 # ╔═╡ Cell order:
 # ╟─b8fd235e-072b-4697-97a3-b537aba895f2
 # ╟─5516b798-bf15-4cc3-a190-dca31aea2304
-# ╟─b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
+# ╠═b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
 # ╟─25a4d818-4cde-46b2-8af3-34f63647558a
 # ╟─d6d4ee7b-7a67-4ae6-9d72-4c21837b8182
 # ╟─e11b958e-fb9b-4811-9922-089c3e7aacae
@@ -1525,8 +1529,9 @@ version = "1.8.1+0"
 # ╠═bde242a7-ebaa-45ad-b4c0-33b0913b3efe
 # ╠═91139377-20b7-428c-ae62-8be53d5eb685
 # ╠═bafae6ea-8a40-4009-8b62-c06f8db45ad4
+# ╟─cf48693b-c5b1-44a9-a76b-cb534c6766b7
 # ╠═89824c37-ea7c-4a2f-8090-ab0bd4166de9
-# ╠═ce9644c6-8c4d-4266-b12f-860c76cbfbc4
+# ╟─ce9644c6-8c4d-4266-b12f-860c76cbfbc4
 # ╠═6b091abf-5e74-41ff-befc-6294d3fee671
 # ╠═b959045e-ce5b-45aa-a9f0-540a18c1c2de
 # ╟─edc06a19-6169-4766-ab29-a11bdf329d17
