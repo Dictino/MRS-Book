@@ -1,21 +1,23 @@
 ### A Pluto.jl notebook ###
-# v0.20.0
+# v0.20.3
 
 using Markdown
 using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
+    #! format: off
     quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
+    #! format: on
 end
 
 # ╔═╡ 79bde88e-0788-4d67-975c-5d47b72846ff
-using PlutoUI, Plots, PlutoUI, LaTeXStrings
+using PlutoUI, Plots, PlutoUI, LaTeXStrings, Printf, PlutoTeachingTools
 
 # ╔═╡ b8fd235e-072b-4697-97a3-b537aba895f2
 md"""# Model of the vehicle
@@ -93,165 +95,268 @@ end
 # ╔═╡ ae3961d4-be42-4268-b60f-653fe5842adc
 set_point=[0.0, 0.0] # x, y
 
-# ╔═╡ be7d937c-2a46-49fe-bc66-49c650f7efb0
-X0=[-20.0,10.0,0.0,0.0,0.0,0.0,0.0]
-#X0=[+20.0,10.0,0.0,0.0,0.0,0.0,0.0] #some interestings thigns to try
+# ╔═╡ 91139377-20b7-428c-ae62-8be53d5eb685
+Tf=600.0
 
 # ╔═╡ 25e7d4b0-51aa-4064-ad7b-07593d75c628
 dt=0.1;
 
-# ╔═╡ b3727f46-35b9-40e3-8a86-811790f52e4b
-md"""# Proposal 1: Constant control
-Interact with the sliders to change the constant $a_0$ and the current time to change the behaviour and see how the vehicle moves.
-"""
+# ╔═╡ 4da9ca61-abc6-4b59-93d6-8bb8c83d8aa6
+md"""# Optimizing the previous controller
 
-
-# ╔═╡ 91139377-20b7-428c-ae62-8be53d5eb685
-Tf1=100.0;
-
-# ╔═╡ bafae6ea-8a40-4009-8b62-c06f8db45ad4
-@bind t1 Slider(0:dt:Tf1; default=0, show_value=true)
-
-# ╔═╡ cf48693b-c5b1-44a9-a76b-cb534c6766b7
-md"Move the time slider to see in wicth direction the vehicle moves, 
-
-try positive and negative values of $a_0$"
-
-# ╔═╡ 89824c37-ea7c-4a2f-8090-ab0bd4166de9
-@bind a0 Slider(-99.9:0.1:100 ; default=45, show_value=true)
-
-# ╔═╡ bde242a7-ebaa-45ad-b4c0-33b0913b3efe
-function constant_control(x,y,ψ,u,v,r,t)
-    a_s=0.0 #BROKEN MOTOR
-	a_p=a0	#the control action is some consant you can choose	    
-    return (a_s,a_p)
-end
-
-# ╔═╡ ce9644c6-8c4d-4266-b12f-860c76cbfbc4
-md"To reset the default just press the play buttom"
-
-# ╔═╡ b959045e-ce5b-45aa-a9f0-540a18c1c2de
-#if you whant to save the last figure uncoment this line
-#savefig("figs.pdf")
-
-# ╔═╡ edc06a19-6169-4766-ab29-a11bdf329d17
-md"""# Proposal 2: Asimetric control
-The previous control does not go anywere because we are apliying the same force $a_0$ no mather what the orientation of the vehice is.
-
-In order to change that, and break the symetry of the circle, we will apply a bigger force ($a_0+\Delta a$) when the vehicle faces north and a smaller one when it points South ($a_0-\Delta a$).
-
-
-To determine if the vehilce points North or South we only need to see if $sin(\psi)$ is possitive or negative:
-
-Points North: $sin(\psi) > 0 \to a_p=a_0+\Delta a$
-
-points South: $sin(\psi) \le 0 \to a_p=a_0-\Delta a$
-
-Now the vehicle mooves in **some** direction but not necesary in the direction that we want, you can play with the sliders to change behaviour
-"""
-
-# ╔═╡ bb221b35-ec5a-4bad-a10b-3089b93117d9
-@bind Δa Slider(-99.9:0.1:100 ; default=15, show_value=true)
-
-# ╔═╡ 1ece5497-5b5c-44e7-b1cf-fd51d131507a
-function asymmetric_control(x,y,ψ,u,v,r,t);
-    a_s=0.0 #BROKEN MOTOR
-	if(sin(ψ)>0) #vehicle points North
-		a_p=a0+Δa
-	else
-		a_p=a0-Δa #vehicle points South
-	end
-    return (a_s,a_p)
-end
-
-# ╔═╡ f13908d1-3db9-4d08-9e8e-f36a77a39a9e
-md"**hint:** If you with you can or drag and drop the sliders (or any other code cell) to any place. For example you can move $a_0$ here and have both $a_0$ and $\Delta a$ in the same place."
-
-# ╔═╡ bc0087c2-426f-4637-8b52-411888682f19
-Tf2=200
-
-# ╔═╡ 3b72832e-17e9-4868-ad39-5fc572c49509
-@bind t2 Slider(0:dt:Tf2; default=0, show_value=true)
-
-# ╔═╡ fdc47547-5082-4c4e-941d-977a52086e84
-md"""# Proposal 3: Course control
-First we rewite the if else statement in a compatc form:
-
-$a_p=a_0 + \Delta a \cdot sign(sin(\psi))$
-
-Next we introduce an offset $\Delta \psi$ so the vehicle goes in the desired direction.
-
-$a_p=a_0 + \Delta a \cdot sign(sin(\psi+\Delta \psi))$
-
-Note that now the control law switches when $\psi+\Delta \psi= n\pi$ instead of $\psi= n\pi$ so the direction of the average dispacement will be rotated an angle $\Delta \psi$.
-
-Now you can **Try to adjust $\Delta \psi$ such that the vehicle goes north** (up in the figure) 
-
-**hint:** looking at the previous figure with the default values (press play on the slider to reset the defaults) the directioin at wicth the vehicle goes is close to -60º with could be a good initial guess.
-"""
-
-# ╔═╡ 1ec8a434-e187-4624-8499-1a31d83c0e6a
-@bind ofset Slider(-180:1.0:180 ; default=0, show_value=true)
-
-# ╔═╡ 91fb19e5-020c-4d1b-b3f8-ff96620b9df2
-md"To move the slider with preccision **you can use the keyboard arrows**"
-
-# ╔═╡ a9b5698f-0a03-4a24-88d6-cc183c4825a2
-Δψ=ofset*pi/180
-
-# ╔═╡ 597dc673-d9eb-49b1-bd35-42bd2f0c3980
-function course_control(x,y,ψ,u,v,r,t);
-    a_s=0.0 #BROKEN MOTOR
-	a_p=a0+Δa*sign(sin(ψ+Δψ))
-    return (a_s,a_p)
-end
-
-# ╔═╡ f2ba5c0e-4e1c-445f-80c6-cc141120d93e
-md"""# Proposal 4: Possition control
-Now that we can go North we can go in any direction $\psi_r$ by chaging the origin of coordinates $\psi \to \psi - \psi_r$ as follws:
-
-
-$a_p=a_0 + \Delta a \cdot sign(sin(\psi -\psi_r+\Delta \psi))$
-
-In witch direction $\psi_r$ we want to go? 
-
-Simple, go "*straigth to the point*", so we compute the relative orentaiton of the setpoint with respect to the vehicle:
+We finished the previous example with the following control law:
 
 $ψ_r=atan(y_r-y,x_r-x)$
 
-Thats all, this simple two-liner control is able to drice the vehicle close to the revery point with only one motor avaliable.
+$a_p=a_0 + \Delta a \cdot sign(sin(\psi -\psi_r+\Delta \psi))$
+
+Were $a_0=$45, $\Delta a=$15 and $\Delta \psi=$-63º
+
+Now we parametrize the control in terms of $a_1$ and $a_2$:
+
+$a_0=(a_1+a_2)/2$
+
+$\Delta a=(a_2-a_1)/2$
+
+Thus the two contol actions applied by the controler are:
+
+$a_0-\Delta a=a_1$
+$a_0+\Delta a=a_2$
+
+Thus we can directly specify the control actions that the controller will apply to the motor. Then the controller can be seen as a funcion of the state and a vector of parameters
+
+$\theta = [a_1, a_2, \Delta \psi]^T$
+
+And the previous controller is $\theta_0 = [30, 60, -\frac{63\pi}{180}]^T$
+
 """
 
-# ╔═╡ b6008dfb-d7c4-4158-b3ae-4b1c294cfb54
-function position_control(x,y,ψ,u,v,r,t)
-	xr,yr=set_point
+# ╔═╡ e160754f-6894-462f-8550-209f818b485f
+function position_control(x,y,ψ,u,v,r,t,θ,sp)
+	a1,a2,Δψ=θ #get the values of the parameters
+	a0=(a1+a2)/2
+	Δa=(a2-a1)/2
+	xr,yr=sp
     a_s=0.0 #BROKEN MOTOR
 	ψ_r=atan(yr-y,xr-x)
 	a_p=a0+Δa*sign(sin(ψ-ψ_r+Δψ))
     return (a_s,a_p)
 end
 
-# ╔═╡ 87e4f883-88db-48b5-8c65-6e127a5ce7d0
-Tf3=500 #we need more time in this example to see the vehaivour
+# ╔═╡ b23df7c9-1601-491b-8a00-59923358863f
+md"""
 
-# ╔═╡ 52791dd5-616b-4323-94a5-e8cba24666f6
-@bind t3 Slider(0:dt:Tf3; default=0, show_value=true)
+Now the goal is to make the controller better, but "*better*" in what sense?
 
-# ╔═╡ 53f59c7c-f146-4bf5-912e-8cc596581d6e
-md""" # Disturbances and moddelling errors
-Now is up to you to play with the controller, include some current vy_current, changhe the initial conditions, or modiffy the parameters of the controller to see what happend and at which extend the controller is robust.
+Better is a fuzzy term, we need a precise definition so we consider that a funcion is better if it reduces the index: 
+
+$ISE=\int_{0}^{T} d(t)^2 \; \mathrm{d}t$
+
+where d is the distance from the vehicle to the taget point. But as we are working with a discrete aproximation the following index will be reduced:
+
+$J_{ISE}=\Delta t\sum_{i=0}^{T/\Delta t} (x(t_i)-x_r)^2 + (y(t_i)-y_r)^2 \approx ISE$
+
+
+
+For safety reasons it is not advisabe to drive the motors to 100% of power during long times so it is desirable to apply control actions below 60%.
+
+Thus the aim is to minimize $J_{ISE}$ subject to the system dynamics and
+
+$0 \le a_0 \le 60$
+
+$0 \le a_1 \le 60$
 """
 
-# ╔═╡ bcc390ce-2eca-4041-8631-2bb90bead286
-md"For example, here we add a constant current as a disturbance.
+# ╔═╡ f819631b-81b4-46c7-ac8c-0ec210a0aed1
+function J_ISE(dt,x,y,sp)
+	xr,yr=sp
+	return dt*sum( (x.-xr).^2 + (y.-yr).^2 )
+end
 
-**Note:** it is better to not set this until the previous control is well tuned, otherwise it will be more difficult to understand what is happening in the previous sections"
+# ╔═╡ 86d43341-0d85-4858-8c8b-445535332a6d
+md"First we compute the cost of the original controller to make comparisons easier"
+
+# ╔═╡ a8fc342c-88ff-47b4-b05f-f53b8325cfcd
+md"so we can compare the cost to the initial guess, in order to do so we **normallize** the cost to the original controller"
+
+# ╔═╡ 5a6ad0a6-9402-4b8c-997f-69ebbb2bf73a
+md"""## Time to play
+Now try to find the optimal value of the parameters, we will give you some advice to arrive there
+"""
+
+# ╔═╡ 0c2d0efa-a514-4dff-ac44-a4e086c0c712
+question_box(md"Try to play to make the value of the cost as small as possible, yow will see that many behaviours are possible by changing the sliders, feel free to explore")
+
+# ╔═╡ 89824c37-ea7c-4a2f-8090-ab0bd4166de9
+@bind a1 Slider(0.0:0.1:60.0 ; default=30, show_value=true)
+
+# ╔═╡ bb221b35-ec5a-4bad-a10b-3089b93117d9
+@bind a2 Slider(0.0:0.1:60.0 ; default=60, show_value=true)
+
+# ╔═╡ 1ec8a434-e187-4624-8499-1a31d83c0e6a
+@bind ofset Slider(-180:1.0:180 ; default=-63, show_value=true)
+
+# ╔═╡ 91fb19e5-020c-4d1b-b3f8-ff96620b9df2
+md"To move the slider with preccision **you can use the keyboard arrows**"
+
+# ╔═╡ 0dff1971-5a2a-4b76-81d2-363eae504f4b
+if a1>20
+	almost(md"Try reducing a1")
+elseif a1<18
+	almost(md"Try increasing a1")
+elseif a2<59
+	almost(md"Try increasing a2")
+elseif ofset<-78
+	almost(md"Try increasing the ofset")
+elseif ofset>-76
+	almost(md"Try decreasing the ofset")
+else
+	correct("The optimal value is a1=19, a2=60, Δψ=-77º")
+end
+
+# ╔═╡ b959045e-ce5b-45aa-a9f0-540a18c1c2de
+#if you whant to save the last figure uncoment this line
+#savefig("figs.pdf")
+
+# ╔═╡ d68f6613-3540-4c7d-9722-60cd5cf4ef85
+md"""## This is hard! let the computer do it
+The problem is small, we can do a brute force search of the optimal parameters as follows:
+"""
+
+# ╔═╡ 2cb45131-6d39-4be6-96f9-35146d078404
+function fastcost(θ)
+	N=6000
+	dt=0.1
+	#compute the cost faster by not saving states
+	#it also use fixed values for the initial condicions and normallizing cost so save time
+	
+    x=-20.0
+    y=-20.0
+    yaw=0.0
+    u=0.0
+    v=0.0
+    r=0.0 
+
+	J=x*x + y*y
+	
+    #Euler method (not very sophisticated)
+    for i=1:N 
+		#compute the control
+        a_s,a_p=position_control(x,y,yaw,u,v,r,0,θ,(0,0))
+		#apply to the vehicle
+        (dx,dy,dyaw,du,dv,dr)=medusa_model(yaw,u,v,r,a_s,a_p)     
+        #update the states
+        x=x+dx*dt;
+        y=y+dy*dt;
+        yaw=yaw+dyaw*dt;
+        u=u+du*dt;
+        v=v+dv*dt;
+        r=r+dr*dt;
+
+		J += x*x + y*y
+    end
+	
+    return dt*J/108703.04741586205
+end
+
+# ╔═╡ aa676233-5959-4c13-a627-900ac1dffd51
+function brute_force_search(X0,Tf,dt)
+	Jmin=Inf
+	θ_op=(0.0, 0.0, 0.0)
+	
+	for a1 in 0.0:60.0
+		for a2 in a1:60.0
+			for Δψ in (-80:-70)*pi/180# we are cheating to do the full exploration you need (-180:180)*pi/180 but it is slow ;)
+				θ=(a1, a2, Δψ)
+				J=fastcost(θ)
+				#the same that 
+				#x,y=simulator(X0,Tf,dt,position_control,θ,[0,0])
+				#J=J_norm(dt,x,y,[0 0])
+				#but 2x faster ;)
+				if J<Jmin
+					Jmin=J
+				    θ_op=θ
+				end
+			end
+		end
+	end
+	
+	return (Jmin,θ_op)
+end
+
+# ╔═╡ 0b513422-d700-4a1d-bda5-f9d5febfced7
+ j,param=brute_force_search((-20.0, -20.0, 0.0, 0.0, 0.0, 0.0, 0.0),Tf,dt)
+
+
+# ╔═╡ a87303b1-0b7e-4948-a24d-0b47ec57cc2d
+md"We used brute force instead clasicall optimization procedures because the problem is **hard** since the function has many local mimimun, to see it we paint $J$ as a function of $a_1$ in a neirborhood of the global minimum:"
+
+# ╔═╡ 60d374b2-5a47-494c-a46f-91e8bf6502e4
+begin
+	x=15.0:0.1:25.0
+	N=length(x)
+	Js=zeros(N)
+	for i in 1:N
+		Js[i]=fastcost([x[i], 60, -77*pi/180])
+	end
+	plot(x,Js, label="J")
+		
+end
+
+# ╔═╡ edc06a19-6169-4766-ab29-a11bdf329d17
+md"""# Contol parametrized as a time series
+In this case the contron is discretized in time in slots of 1s, then the control action is aplied during the whole second (thar corespondes to 10 steps in the simulation)
+"""
+
+# ╔═╡ 828fc57c-e203-4796-8c47-fb5a6373d84e
+function time_parametrized_control(x,y,ψ,u,v,r,t,θ,sp)
+    a_s=0.0 #BROKEN MOTOR
+
+	#Find the index of this time, the time sample is 1s
+	n=Int(floor(t))+1
+	a_p=θ[n] #apply it
+
+    return (a_s,a_p)
+end
+
+# ╔═╡ 225350fd-9e87-4954-8a60-fa23a832221c
+md"now we have 600 parameters so the brute force approach is impossible.
+
+We optimized it using Genetic algoritms, if you wish to try yourself see: 
+
+https://docs.sciml.ai/Optimization/stable/optimization_packages/evolutionary
+
+After some trials the optimal result is:
+"
+
+# ╔═╡ 6afdc8f5-a0b5-45a2-9cbc-7132da8468d2
+u_op=[38.6136992494477	56.7178000437924	6.54383427242034	0.446924252217125	3.05904456406349	5.43952293426822	17.3541852318177	32.0087816511427	6.07539178491242	1.90131041821114	3.44002561282039	22.4370627802693	20.9263545042480	44.9585020011785	31.4467592174792	59.9405076059591	59.9761659936576	59.9462195679478	59.9675775316782	59.9670949142148	59.9702512374135	57.8699032362436	38.0332571885421	44.7543460197284	15.0153229079941	9.66265107081685	34.5965553287444	22.3025136049273	4.63391720461819	19.7948397447739	19.5211590329707	16.7789338205206	19.0291969082173	3.86749593336644	1.37781152696387	36.5053190808621	19.3651086574751	0.275297184587755	0.859458176319266	3.81635154782661	31.0027903298246	26.1299601089131	59.8132021883174	59.9437799897045	59.9789554141865	59.9978915296258	59.9899784982646	59.9646598358554	59.8625576238118	43.9456484146498	50.3654416836887	2.07255656600202	35.7418952294088	7.56222140605918	29.8691270596233	10.1606888906585	8.70650798057027	5.65156518530226	9.90329771594752	16.1120316332490	12.7351919157554	36.3526649398710	10.1352567919660	11.3132308456953	2.60550634421895	8.46506074882331	16.1326357008026	22.8952670762015	5.14007156216102	0.125154842339647	20.2643041713434	20.5441367225208	29.7849547369342	1.88918352912964	1.16601918950727	22.2747262142843	59.9724331926887	59.9712272761408	59.9841114565652	59.9845325650606	59.9939788808298	59.9703330836722	59.9742139239629	55.9279438091351	23.1773783035691	18.1659398902510	20.0511541981331	39.4490475983732	11.9104305393175	5.12814847468530	19.3488275446896	9.44549648530664	14.7522705525832	12.8504778133604	11.2355932880010	29.0433285431266	9.77637653930294	12.5358010909690	2.06528141220258	15.8667763434400	23.3758068757291	0.459690695951853	13.7007926131361	12.4495318086758	28.0341171341868	11.8337800139619	7.36741338339113	3.90814522801026	3.04158860627149	16.6291242689486	2.84918574790575	21.4125311297912	43.9475680686063	20.3248695716784	59.9162466648025	59.9715815696840	59.9379450964009	59.9771191438299	59.9999009691735	59.9531670192369	59.8703594400457	29.2813808281402	31.8614880683495	38.8243755826316	13.0311992908164	15.5669702370184	20.5009323919533	3.01782215368132	23.0503179261175	9.67679299948402	28.0853006669245	3.18566149871665	5.14004834864703	15.7970858829244	14.5877173151422	20.2516435869472	2.84373211248944	26.6790936333807	21.5127671920766	2.46517746576756	5.34596318853074	3.97609955528017	5.31522279772779	2.47504133560405	26.7846192212280	1.89798793716782	41.8861343191663	22.2078600309829	58.5278370259641	59.9469367979847	59.9852315785299	59.8628831761656	59.9949358878330	59.9858950156933	57.3744617110664	57.2661346145159	28.7149400891710	20.3338271617770	40.1452881334292	3.13189119542291	8.45525358388548	8.41232484467473	22.7791075545793	1.60325210824065	26.3875792151967	28.2190296263750	21.0721613777896	2.45958410102441	7.10862596524288	5.66709813373073	12.0010296692368	5.13533726571227	40.4413096537981	10.1190756056051	21.8919565265285	56.3501889321911	59.9600868119239	59.9931903754417	59.9760146594837	59.9967132091490	59.9965490649194	59.8148807172228	52.7382486093867	52.6764005513849	24.4604795572131	18.6078665429628	6.65352082786053	18.8238838214679	33.2545773946675	22.8704158648492	17.9428212508618	21.9116968256538	7.75318489315817	9.29453739641184	8.97999696658407	26.0978695860860	10.6566180563478	16.6957712038703	26.7517523588520	24.4861639376767	2.69114132247509	59.9698401894033	49.6490962972341	59.9654615791476	59.9226525924726	59.9448872518501	59.9392326303941	59.7646449756225	56.9226793531291	27.6017875753492	30.4546371042299	48.9690329006416	2.44840594909722	22.0930800486104	14.2542517247462	24.4958813771225	10.6911077073400	34.7742770799262	4.14285268314640	10.1957850360977	5.35278666033736	9.53159679309419	8.10083508203607	10.5008402388366	3.44512193108604	6.50271778281873	35.9085390894179	8.74158723233439	2.11855034969642	10.9001276403321	5.69506835709989	26.3320576601401	8.22391781044479	5.34687489750848	21.8578272972983	24.5791649233234	7.55752586753762	47.2696982877788	59.8132600815743	59.8723194801809	59.9311410003563	59.9475087195970	59.9879158018961	59.9376874701799	55.2993039844217	20.4496247197958	24.0921671215976	39.5816844601721	9.67584523722718	23.2981131238320	18.7857813060663	30.3499547562812	18.8075974614758	13.4755888571942	2.40628241297690	3.63694434015579	27.9909515873552	14.8958900889682	8.42279060465507	11.8783779342199	13.1507590659702	6.02036524217631	16.0903275394129	9.63279379706161	1.72212998949212	8.09046340914027	20.6104775612759	9.86676158017985	2.97151086465740	5.09271000895103	26.6851703917615	38.2619112236008	21.4175266225332	19.4362991029945	21.5194904702424	59.7352329001887	59.9095172064110	59.8304162380684	59.9855757761599	59.9400854962163	42.4627462803376	37.7523833107214	41.5220255510144	45.8565400768834	28.1596633804564	28.4044426461455	39.6696201476944	15.2459036913115	17.7139068366047	10.9559987230467	6.34482338155259	11.1606584315210	27.8515774899202	14.5311911392094	6.95460826698567	8.90482261760381	25.4211616075428	44.7718489265416	22.3569576152315	20.0203290454838	25.4158828568681	27.1952741937219	26.2710489909026	16.1000869028606	45.6812816255359	59.9700042644905	59.9859071418122	59.3264810693964	49.8083233572326	15.2732332838161	21.5255143967815	49.6401071700227	18.1795446046712	36.5420523490533	35.2851898681604	46.2539140837239	51.0174010316270	11.7287196316085	7.02393933935696	31.5397163547647	5.10248805350556	7.70724430991745	50.6941144226210	16.9262859511345	27.2297430333753	22.5212795661318	32.3129875239173	29.6357972351768	34.9633065265859	43.7951889406241	53.9198492259615	27.1646372436489	33.2033547707710	52.9847839036341	24.6625649729304	56.3216628240169	56.6564571403461	20.6081173548773	30.2712677692380	25.0478394269175	16.4599651939370	9.94910577495183	21.1871854080913	31.0451817169422	21.8885273801161	47.3680185130916	5.14512811285495	22.1042057591660	15.8367936610159	18.4597795019279	41.4657645176406	29.2483392981316	27.2431364670733	38.3121620228053	59.7077818300511	46.6033924589091	15.2759206383328	30.8293167039254	14.9303305368986	57.8258895073234	43.7678867131643	43.1206700640790	19.1643464368517	31.0411056776561	43.9772099204723	15.6348582353939	44.2057123370473	44.2618288059363	40.6676177403417	31.6504084121572	8.74305937131892	34.4744189643138	29.2152965780585	30.4571689492635	17.0650281533782	59.9313570475464	15.7489392764802	50.1798558242208	59.7845168563209	48.9378639262756	42.0466616599825	5.57331414016373	28.5180709202346	45.4550135528530	35.1173462983945	9.53540587703799	46.0971893394549	27.5216707998889	18.2015110265202	36.9967876330704	14.0567526943018	50.2158445337660	3.82423108083381	40.4351593903069	38.6421820310127	12.3362632759484	23.1314743443892	55.5738891441261	22.7857261439518	51.3775610532110	46.1505978800447	13.4270285228749	35.1028198072955	55.5658747732650	15.8366603931929	34.3354682176689	36.6514136759206	59.6183975849608	31.2480815112698	5.97054024703569	15.3697726621082	2.04275109165089	10.8110165170271	16.7497367567827	29.2021875691873	37.6175138802370	9.30160688941180	48.6932151635497	45.1555711095167	52.5326579356394	33.0547691269524	49.2662413456889	16.2257051671689	21.0603889021302	44.4814416490592	16.8155961978925	22.5244147557015	36.5038237844485	51.3881889260507	46.7289604862918	24.1551306210262	59.5275720666112	32.6659263335923	12.1566614634500	6.68074432245529	21.5642052159286	5.87055472674697	46.2052318361950	9.25574818918071	8.33473578011213	14.5696980723170	22.1490862603885	19.0965385123001	59.6392760911275	59.8397584361404	10.6795893006333	50.8529580217427	37.5477817565849	10.5776139681794	31.3204082523678	12.2516502313418	38.3909152120027	52.3080168151463	30.0208620731935	4.84056824868925	9.85749429940485	48.5186473471806	36.8037085832508	56.1083141966096	7.53718690569175	17.5111850386260	28.8967953324601	15.0752790368737	59.5309602766234	5.49288508515670	29.0526418527449	27.4763843597708	26.1620750303175	21.9196207602244	30.5102208857082	29.0088538959279	42.7059767457839	53.3859577490484	42.0172363888500	45.6704427559398	55.2072640075049	51.7249962236833	24.3893372081633	8.46765037261982	12.2484914730398	30.4368744344443	19.1048438933927	17.0945660279732	53.8763932127925	51.3338696249976	43.7042148352295	13.8109728080269	45.5688120777862	29.6567481736173	7.88407044401627	31.2062547580619	23.0610022370835	51.3905383471757	48.1181980810992	46.0563418600427	13.9214932111067	40.1586724332522	58.7291609617196	34.5182081274616	54.9672680551927	18.0166356698098	9.45551164303355	23.7283167925263	16.5148690969147	44.6887194687318	21.5657182684967	26.5513466216809	40.6787993417408	32.7273009581340	37.1385058773697	11.8898635326845	22.6987871356481	50.4991231389028	11.9067050981905	34.6541005295743	52.2164816999462	58.9829219364820	14.6013412166963	23.4567977427578	59.0557079485134	53.3498226468011	3.58474527833186	20.8863912401812	8.84120645672518	4.29109623475242	28.7177324338691	44.3210023339021	59.0005789085176	10.0134939462827	33.2747382980448	45.7010220627177	31.2821081527147	10.9885590314794	29.5777646732823	13.2851556965834	15.6548596678002	50.8905437221188	40.6038812333561	56.7611710845131	23.8434443801068	23.6053858577256	32.1041999570266	32.9685303798780	59.9572588844732	4.84173655573997	54.1149987030997	18.7227712320904	18.1402238910823	43.4801432132654	7.21690139810484	59.8050574150945	16.2233281927269	28.6894705035158	20.5968455874243	13.7454958549747	16.8046641059347	59.8765699718318	41.1183615705974	36.8618975647855	54.8562163247345	21.5293728532705	13.2191080532279	47.3621175694896	25.9888973210442	46.4170543909057	55.7669236315548	30.9431840333413	53.9424307990367	44.1905019193828	15.5237547151706	5.42874822904930	47.2997227879809	13.8948379876904	19.7892802849897	25.3815765098436	33.3357682540720	52.8711552672429	59.8993926695448	59.6473444708204	59.7303988217011	32.4806002855541	18.5106469550921	29.6492265878390	49.6003416010496	47.3783136269910	6.88675454837708	11.2347633139030	50.3851748629794	55.5863978577952	49.6584298753991	51.8843126703420	33.0638631604681	59.1174981330723	43.2164030605269	57.5702616531771	39.3794122846284	9.84884655567525	13.4519233092681	10.5363350126279	24.3503203751758]
+
+# ╔═╡ 898c454e-5568-4e6f-8898-443f85ec4b27
+danger(md"""This control must be recomputed for any initial condition.
+
+**Change the initial condition** and see that the control sequence does not work properly""")
+
+# ╔═╡ faa44634-49c8-43dc-8600-77b93e6ce15b
+begin
+    X0=[-20.0,-20.0,0.0,0.0,0.0,0.0,0.0]
+    #X0=[-10.0,10.0,0.0,0.0,0.0,0.0,0.0] #uncomment this and see what happens
+end
+
+# ╔═╡ 8275e999-1517-4194-aa13-4178affdfe1c
+X0
+
+# ╔═╡ ea0db0d2-2778-4a5f-9a49-10c0231f65ce
+danger(md"""It also does not reject disturbances because it is an open loop control.
+
+**Apply some current** and see what happends
+""")
 
 # ╔═╡ b212918a-0325-4691-b464-22ab12aa30cb
 @bind vy_current Slider(0:0.0001:0.01, default=0, show_value=true)
 
 # ╔═╡ 25a4d818-4cde-46b2-8af3-34f63647558a
-function simulator(X0,Tf,dt,controller)
+function simulator(X0,Tf,dt,controller,θ,sp)
 	N=Int(ceil(Tf/dt))
         
     x=zeros(1,N+1);
@@ -275,7 +380,7 @@ function simulator(X0,Tf,dt,controller)
     #Euler method (not very sophisticated)
     for i=1:N 
 		#compute the control
-        a_s[i],a_p[i]=controller(x[i],y[i],yaw[i],u[i],v[i],r[i],t[i]);
+        a_s[i],a_p[i]=controller(x[i],y[i],yaw[i],u[i],v[i],r[i],t[i],θ,sp);
 		#apply to the vehicle
         (dx,dy,dyaw,du,dv,dr)=medusa_model(yaw[i],u[i],v[i],r[i],a_s[i],a_p[i]);     
         #update the states
@@ -292,10 +397,20 @@ function simulator(X0,Tf,dt,controller)
     return (x=x,y=y,yaw=yaw,u=u,v=v,r=r,t=t,a_s=a_s,a_p=a_p)
 end
 
+# ╔═╡ 126f1b41-6b18-4359-9945-ec18daf32eee
+begin
+	x_baseline,y_baseline=simulator(X0,Tf,dt,position_control,[30 60 -63*pi/180],set_point)
+	Jref=J_ISE(dt,x_baseline,y_baseline,set_point)
+end
+
+# ╔═╡ 977753f5-61ab-4ae8-937c-42e0ad79838c
+J_norm(dt,x,y,sp)=J_ISE(dt,x,y,sp)/Jref
+
 # ╔═╡ e11b958e-fb9b-4811-9922-089c3e7aacae
-function show_figure(now,dt,Tf,control)
+function show_figure(now,dt,Tf,control,θ,sp)
 	
-	x,y,yaw,u,v,r,t,a_s,a_p=simulator(X0,Tf,dt,control)
+	x,y,yaw,u,v,r,t,a_s,a_p=simulator(X0,Tf,dt,control,θ,sp)
+	J=J_norm(dt,x,y,sp)
 	
 	N=length(t)
 	n=Int(ceil((N-1)*now/Tf)+1) #index of the actual time 
@@ -306,7 +421,7 @@ function show_figure(now,dt,Tf,control)
 	ylabel!(L"x")
 
     p1=paint_vehicle!(p1,x[n],y[n],yaw[n])
-	p1=scatter!(p1,[set_point[1]],[set_point[2]],label="Setpoint")
+	p1=scatter!(p1,[sp[1]],[sp[2]],label="Setpoint")
 
     #evolucion of the state and control actions
 	p2=plot(t,u',xlabel=L"t",ylabel=L"u",label=:none)
@@ -325,63 +440,88 @@ function show_figure(now,dt,Tf,control)
 	p6=scatter!(p6,[t[n]],[a_p[n]],label=:none)	
 	
 	l = @layout [a{0.5h} ; b c d; e f]
-    figs=plot(p1, p2, p3, p4, p5, p6, layout = l)
+
+	Jtext= @sprintf("%5.3f",J)
+	titulo=L"\frac{J}{J_{ref}}=%$Jtext"
+    figs=plot(p1, p2, p3, p4, p5, p6, layout = l, plot_title=titulo)
 	plot!(size=(600,800))
     return figs
 end
 
 
 # ╔═╡ 6b091abf-5e74-41ff-befc-6294d3fee671
-show_figure(t1,dt,Tf1,constant_control)
+show_figure(0,dt,Tf,position_control,[a1 a2 ofset*pi/180],set_point)
 
-# ╔═╡ f6213dfe-757f-4223-911d-b2fc82441c03
-show_figure(t2,dt,Tf2,asymmetric_control)
+# ╔═╡ c0adf90c-b81b-4ef5-bc1f-f536cefbca04
+show_figure(0,dt,Tf,time_parametrized_control,u_op,set_point)
 
-# ╔═╡ 3497e91d-7651-4e4f-bf44-ba1c34c4f45d
-show_figure(t2,dt,Tf2,course_control)
+# ╔═╡ fdc47547-5082-4c4e-941d-977a52086e84
+md"""# Control parametrized as a fourier series
 
-# ╔═╡ 49840eeb-9df4-498b-a626-c882b4f6249a
-show_figure(t3,dt,Tf3,position_control)
+The previous control is not good because it is not reactive (open loop control) and has to be compputed for any initial conditions (very slow). In addition the control action is very noisy.
 
-# ╔═╡ ffc8a420-29cb-4143-a65f-b20995c5551b
-show_figure(t3,dt,Tf3,position_control)
+The question is if it is possible to achieve a closed loop control law that works for any initial condition and, at the same time, is simple to compute as the initial controller.
 
-# ╔═╡ e8f3976f-b46c-4203-9bda-70de15fd9199
-md"""# What happens if the portside thuster fails?
-The later contol was developed under the asumption that the startboard motor fails but if the portside thuster fails the situation is analogous. 
-
-In fact it is just a mirror refeclion of the later and the only thing that needs to be changed for the controller to work is the sign of the relative angle, i.e. $\psi - \psi_r \to \psi_r - \psi$ as follws:
-
+To get the best of both words se def
 
 $ψ_r=atan(y_r-y,x_r-x)$
 
-$a_p=a_0 + \Delta a \cdot sign(sin(\psi_r- \psi +\Delta \psi))$
+$a_p=min(a_{max},max(-a_{max},f(\psi -\psi_r)))$
 
-now as you can see the controller works the same but the vehicle just turns counterclocwise.
+Where f is a generic funcion parametrized as a fourier series and $a_max$=60 is the maximun allowed control action than can be applied to the actuators.
 """
 
-# ╔═╡ 7b289c9b-5532-4f59-b16d-6228fc7e06ef
-function position_control2(x,y,ψ,u,v,r,t)
-	xr,yr=set_point	
+# ╔═╡ 64cb1add-744c-42fc-90ca-ef6817bc2fc0
+function fourier_control(x,y,ψ,u,v,r,t,θ,sp)
+	xr,yr=sp
+    a_s=0.0 #BROKEN MOTOR
 	ψ_r=atan(yr-y,xr-x)
-    a_s=a0+Δa*sign(sin(ψ_r-ψ+Δψ)) 
-	a_p=0.0 #NOW THE BROKEN MOTOR IS THIS ONE
+	
+	α=ψ - ψ_r
+    #forurier series of the relative angle alpha
+    a_cos=0.0;
+    a_sin=0.0;
+    for j=2:2:(length(θ)-1)
+        a_cos+= θ[j]*cos((j/2)*α);
+        a_sin+= θ[j+1]*sin((j/2)*α);
+    end
+    a=θ[1]/2 + a_cos + a_sin;
+    
+	a_max=60.0; #saturation
+    a_p=min(a_max,max(-a_max,a));
+	
     return (a_s,a_p)
 end
 
-# ╔═╡ 76109f9b-bc18-494e-85af-ebb283bbee01
-show_figure(t3,dt,Tf3,position_control2)
+# ╔═╡ 92305689-c813-49eb-88d1-a1d2f968f349
+fourier_coefficients=[98.3846784260955	-29.0212800728553	9.58952359435960	-5.88034791675847	-3.11528156318881	-3.67869927767402	0.474019949209862	-0.931024660962334	-6.07984587442653	4.39774248434531	2.86657487838050];
+
+# ╔═╡ c9d19fe0-c247-4eb5-a290-5f9f2b7ea24b
+show_figure(0,dt,Tf,fourier_control,fourier_coefficients,set_point)
+
+# ╔═╡ 53f59c7c-f146-4bf5-912e-8cc596581d6e
+md""" # Disturbances and moddelling errors
+Now is up to you to play with the controller, include some current vy_current, changhe the initial conditions, or modiffy the parameters of the controller to see what happend and at which extend the controller is robust.
+"""
+
+# ╔═╡ bcc390ce-2eca-4041-8631-2bb90bead286
+md"For example, here we add a constant current as a disturbance.
+
+**Note:** it is better to not set this until the previous control is well tuned, otherwise it will be more difficult to understand what is happening in the previous sections"
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 LaTeXStrings = "~1.4.0"
 Plots = "~1.38.16"
+PlutoTeachingTools = "~0.4.7"
 PlutoUI = "~0.7.51"
 """
 
@@ -391,7 +531,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "49afe5557bdc5c1903621ef67116125613389440"
+project_hash = "f253447c50f4047e0f9458a99a862cf74451b254"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -1001,6 +1141,12 @@ version = "1.38.17"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "Latexify", "Markdown", "PlutoUI"]
+git-tree-sha1 = "90b41ced6bacd8c01bd05da8aed35c5458891749"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.4.7"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "d3de2694b52a01ce61a036f18ea9c0f61c4a9230"
@@ -1515,47 +1661,52 @@ version = "1.8.1+0"
 # ╔═╡ Cell order:
 # ╟─b8fd235e-072b-4697-97a3-b537aba895f2
 # ╟─5516b798-bf15-4cc3-a190-dca31aea2304
-# ╠═b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
+# ╟─b68dcc2e-d48f-4286-9baf-b7d28a17bd2b
 # ╟─25a4d818-4cde-46b2-8af3-34f63647558a
 # ╟─d6d4ee7b-7a67-4ae6-9d72-4c21837b8182
 # ╟─e11b958e-fb9b-4811-9922-089c3e7aacae
 # ╠═79bde88e-0788-4d67-975c-5d47b72846ff
 # ╠═ae3961d4-be42-4268-b60f-653fe5842adc
-# ╠═be7d937c-2a46-49fe-bc66-49c650f7efb0
-# ╠═25e7d4b0-51aa-4064-ad7b-07593d75c628
-# ╟─b3727f46-35b9-40e3-8a86-811790f52e4b
-# ╠═bde242a7-ebaa-45ad-b4c0-33b0913b3efe
 # ╠═91139377-20b7-428c-ae62-8be53d5eb685
-# ╠═bafae6ea-8a40-4009-8b62-c06f8db45ad4
-# ╟─cf48693b-c5b1-44a9-a76b-cb534c6766b7
+# ╠═25e7d4b0-51aa-4064-ad7b-07593d75c628
+# ╟─4da9ca61-abc6-4b59-93d6-8bb8c83d8aa6
+# ╠═e160754f-6894-462f-8550-209f818b485f
+# ╟─b23df7c9-1601-491b-8a00-59923358863f
+# ╠═f819631b-81b4-46c7-ac8c-0ec210a0aed1
+# ╟─86d43341-0d85-4858-8c8b-445535332a6d
+# ╠═126f1b41-6b18-4359-9945-ec18daf32eee
+# ╟─a8fc342c-88ff-47b4-b05f-f53b8325cfcd
+# ╠═977753f5-61ab-4ae8-937c-42e0ad79838c
+# ╟─5a6ad0a6-9402-4b8c-997f-69ebbb2bf73a
+# ╟─0c2d0efa-a514-4dff-ac44-a4e086c0c712
 # ╠═89824c37-ea7c-4a2f-8090-ab0bd4166de9
-# ╟─ce9644c6-8c4d-4266-b12f-860c76cbfbc4
-# ╠═6b091abf-5e74-41ff-befc-6294d3fee671
-# ╠═b959045e-ce5b-45aa-a9f0-540a18c1c2de
-# ╟─edc06a19-6169-4766-ab29-a11bdf329d17
-# ╠═1ece5497-5b5c-44e7-b1cf-fd51d131507a
 # ╠═bb221b35-ec5a-4bad-a10b-3089b93117d9
-# ╟─f13908d1-3db9-4d08-9e8e-f36a77a39a9e
-# ╠═bc0087c2-426f-4637-8b52-411888682f19
-# ╠═3b72832e-17e9-4868-ad39-5fc572c49509
-# ╠═f6213dfe-757f-4223-911d-b2fc82441c03
-# ╟─fdc47547-5082-4c4e-941d-977a52086e84
 # ╠═1ec8a434-e187-4624-8499-1a31d83c0e6a
 # ╟─91fb19e5-020c-4d1b-b3f8-ff96620b9df2
-# ╠═a9b5698f-0a03-4a24-88d6-cc183c4825a2
-# ╠═597dc673-d9eb-49b1-bd35-42bd2f0c3980
-# ╠═3497e91d-7651-4e4f-bf44-ba1c34c4f45d
-# ╟─f2ba5c0e-4e1c-445f-80c6-cc141120d93e
-# ╠═b6008dfb-d7c4-4158-b3ae-4b1c294cfb54
-# ╠═87e4f883-88db-48b5-8c65-6e127a5ce7d0
-# ╠═52791dd5-616b-4323-94a5-e8cba24666f6
-# ╠═49840eeb-9df4-498b-a626-c882b4f6249a
+# ╟─0dff1971-5a2a-4b76-81d2-363eae504f4b
+# ╠═6b091abf-5e74-41ff-befc-6294d3fee671
+# ╠═b959045e-ce5b-45aa-a9f0-540a18c1c2de
+# ╟─d68f6613-3540-4c7d-9722-60cd5cf4ef85
+# ╟─2cb45131-6d39-4be6-96f9-35146d078404
+# ╠═aa676233-5959-4c13-a627-900ac1dffd51
+# ╠═0b513422-d700-4a1d-bda5-f9d5febfced7
+# ╠═8275e999-1517-4194-aa13-4178affdfe1c
+# ╟─a87303b1-0b7e-4948-a24d-0b47ec57cc2d
+# ╟─60d374b2-5a47-494c-a46f-91e8bf6502e4
+# ╟─edc06a19-6169-4766-ab29-a11bdf329d17
+# ╠═828fc57c-e203-4796-8c47-fb5a6373d84e
+# ╟─225350fd-9e87-4954-8a60-fa23a832221c
+# ╟─6afdc8f5-a0b5-45a2-9cbc-7132da8468d2
+# ╠═c0adf90c-b81b-4ef5-bc1f-f536cefbca04
+# ╟─898c454e-5568-4e6f-8898-443f85ec4b27
+# ╠═faa44634-49c8-43dc-8600-77b93e6ce15b
+# ╟─ea0db0d2-2778-4a5f-9a49-10c0231f65ce
+# ╠═b212918a-0325-4691-b464-22ab12aa30cb
+# ╟─fdc47547-5082-4c4e-941d-977a52086e84
+# ╠═64cb1add-744c-42fc-90ca-ef6817bc2fc0
+# ╠═92305689-c813-49eb-88d1-a1d2f968f349
+# ╠═c9d19fe0-c247-4eb5-a290-5f9f2b7ea24b
 # ╟─53f59c7c-f146-4bf5-912e-8cc596581d6e
 # ╟─bcc390ce-2eca-4041-8631-2bb90bead286
-# ╠═b212918a-0325-4691-b464-22ab12aa30cb
-# ╠═ffc8a420-29cb-4143-a65f-b20995c5551b
-# ╟─e8f3976f-b46c-4203-9bda-70de15fd9199
-# ╠═7b289c9b-5532-4f59-b16d-6228fc7e06ef
-# ╠═76109f9b-bc18-494e-85af-ebb283bbee01
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
