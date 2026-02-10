@@ -204,9 +204,9 @@ elseif a1<18
 	almost(md"Try increasing a1")
 elseif a2<59
 	almost(md"Try increasing a2")
-elseif ofset<-78
+elseif offset<-78
 	almost(md"Try increasing the offset")
-elseif ofset>-76
+elseif offset>-76
 	almost(md"Try decreasing the offset")
 else
 	correct("The optimal value is a1=19, a2=60, Δψ=-77º")
@@ -287,7 +287,7 @@ end
 
 
 # ╔═╡ a87303b1-0b7e-4948-a24d-0b47ec57cc2d
-md"We used brute force instead of classical optimization procedures because the problem is **hard**, since the function has many local minimums. To see it, we paint $J$ as a function of $a_1$ in a neighborhood of the global minimum:"
+md"We used brute force instead of classical optimization procedures because the problem is **hard**, since the function has many local minimums. To see it, we paint $J$ as a function of $a_1$ in a neighbourhood of the global minimum:"
 
 # ╔═╡ 60d374b2-5a47-494c-a46f-91e8bf6502e4
 begin
