@@ -264,7 +264,7 @@ function brute_force_search(X0,Tf,dt)
 	
 	for a1 in 0.0:60.0
 		for a2 in a1:60.0
-			for Δψ in (-80:-70)*pi/180 # We are cheating to do the full exploration you need (-180:180)*pi/180, but it is slow ;)
+			for Δψ in (-80:-70)*pi/180 # We are cheating. To perform the full exploration, you need (-180:180)*pi/180, but it is slow ;)
 				θ=(a1, a2, Δψ)
 				J=fastcost(θ)
 				# The same that 
