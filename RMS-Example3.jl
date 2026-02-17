@@ -170,14 +170,14 @@ function four_quadrant_model(β)
 	CDmin=0.0273;
 	CDmax=1.0383;
 	CLmax=0.5749;
-	Ψ=atan(1.35/pi); # Pitch of the helix blade 
+	ζ=atan(1.35/pi); # Pitch angle of the propeller 
 	
-	# Angle of attack
-	α=Ψ-β;
+	# Angle of attack at the propeller blade
+	γ=ζ-β;
 	
 	# Drag and lift coefficients CL y CD
-	CLL=CLmax*sin(2*(α-OL));
-	CDL=(CDmax-CDmin)*(1-cos(2*(α-OD)))/2 + CDmin;
+	CLL=CLmax*sin(2*(γ-OL));
+	CDL=(CDmax-CDmin)*(1-cos(2*(γ-OD)))/2 + CDmin;
 	
 	CT=CLL*cos(β)-CDL*sin(β);
 	CQ=(-0.7/2)*(-CLL*sin(β)-CDL*cos(β));
@@ -188,16 +188,16 @@ end
 # ╔═╡ 49dd9b51-29a3-4851-bd12-8d386a2c6612
 function propeller_model(wp,u,r) 
 # "Four-Quadrant Model" adapted from de A. Häusler PhD Thesis.
-	ly=0.15; # Distance from the propeller to the symmetry axis
-	d=0.076; # Helix diameter
-	R=d/2; # Helix radii
+	ly=0.15; # 'y' component of the distance from the centre of the propeller to the centre of mass of the vehicle in the body frame
+	dp=0.076; # Propeller diameter
+	Rp=dp/2; # Propeller radius
 	rho=1023; # Density of water
 	
 	vap=u-ly.*r; # Advance velocity of the propeller
-	vpp=0.7*R.*wp; # Lateral velocity 
-	β=atan(vap,vpp); # Angle of attack
+	vpp=0.7*Rp.*wp; # Lateral velocity 
+	β=atan(vap,vpp); # Advance angle of the propeller
 	_,CQ=four_quadrant_model(β);
-	Qp=rho/2*CQ*(vap^2+vpp^2)*pi*R^2*d;
+	Qp=rho/2*CQ*(vap^2+vpp^2)*pi*Rp^2*dp;
 
 	return Qp
 end
@@ -247,12 +247,12 @@ Now we combine both the ISE and the energy consumption to get:
 
 $J=(1-\lambda) \frac{J_{ISE}}{J_{ISE_{ref}}} +  \lambda \frac{ J_{E} }{J_{E_{ref}} }$
 
-Where $J_{ISE_{ref}}$ and $J_{E_{ref}}$ are the ISE and energy costs of the reference controller starting from initial condition $x_{0w}=[70.26, 70.26, 5.14, 0, 0, 0]^T$ and $0<\lambda<1$ is a weighting factor that tunes the importance of ISE and energy in the cost function.
+Where $J_{ISE_{ref}}$ and $J_{E_{ref}}$ are the ISE and energy costs of the reference controller starting from initial condition $\boldsymbol{\chi_{0_w}}=[70.26, 70.26, 5.14, 0, 0, 0]^T$ and $0<\lambda<1$ is a weighting factor that tunes the importance of ISE and energy in the cost function.
 
 Notice that the normalisation has two purposes:
 
 - It makes the cost dimensionless (we cannot mix Jules with $m^2s$)
-- It makes the cost easy to interpret: $J=1$ means equal to the reference controller in the worst case for any initial condition in $\Omega$ (which is attained in $x_{0w}$). Thus, the optimal controller must have $J<1$ for all initial conditions in $\Omega$.
+- It makes the cost easy to interpret: $J=1$ means equal to the reference controller in the worst case for any initial condition in $\Omega$ (which is attained in $\boldsymbol{\chi_{0_w}}$). Thus, the optimal controller must have $J<1$ for all initial conditions in $\Omega$.
 
 """
 
@@ -546,7 +546,7 @@ begin
 
 	p2=plot(λs, Js_E, label=L"J_E/J_{E_{ref}}",xlabel=L"\lambda",color=:blue)
 	plot!(p2,λs, Js_ISE, label=L"J_{ISE}/J_{ISE_{ref}}")
-	plot!(p2,λs, (1 .- λ).*Js_ISE.+λ.*Js_E, label=L"J")	
+	plot!(p2,λs, (1 .- λs).*Js_ISE.+λs.*Js_E, label=L"J")	
 
 
 	scatter!(p2,[λ], [current_J_e], label="", color=:blue)

@@ -302,7 +302,7 @@ let
 end
 
 # ╔═╡ edc06a19-6169-4766-ab29-a11bdf329d17
-md"""# Control parameterised as a time series
+md"""# Control parametrised as a time series
 In this case, the control is discretised in time in slots of $1s$, then the control action is applied during the whole second (that corresponds to 10 steps in the simulation)
 """
 
@@ -491,7 +491,7 @@ end
 show_figure(0,dt,Tf,time_parametrized_control,θ_op_t_trial,set_point)
 
 # ╔═╡ fdc47547-5082-4c4e-941d-977a52086e84
-md"""# Control parameterised as a Fourier series
+md"""# Control parametrised as a Fourier series
 
 The previous control is not good because it is not reactive (open loop control) and has to be computed for any initial conditions (very slow). In addition, the control action is very noisy.
 
@@ -503,7 +503,7 @@ $ψ_r=atan(y_r-y,x_r-x)$
 
 $a_p=min(a_{max},max(-a_{max},f(\psi -\psi_r)))$
 
-Where f is a generic function parameterised as a Fourier series, and $a_{max}$=60 is the maximum allowed control action that can be applied to the actuators.
+Where f is a generic function parametrised as a Fourier series, and $a_{max}$=60 is the maximum allowed control action that can be applied to the actuators.
 """
 
 # ╔═╡ 64cb1add-744c-42fc-90ca-ef6817bc2fc0
