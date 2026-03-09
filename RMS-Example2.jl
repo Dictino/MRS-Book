@@ -297,7 +297,7 @@ let
 	for i in 1:N
 		Js[i]=fastcost([x[i], 60, -77*pi/180])
 	end
-	plot(x,Js, label="J")
+	plot(x,Js, xlabel=L"a_1",ylabel=L"J_{norm}",label=:none)
 		
 end
 
