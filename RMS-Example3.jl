@@ -1,17 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.19.42
+# v0.20.20
 
 using Markdown
 using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    quote
+    #! format: off
+    return quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
+    #! format: on
 end
 
 # ╔═╡ 79bde88e-0788-4d67-975c-5d47b72846ff
@@ -128,7 +130,7 @@ md"""
 
 In order to have formal warranties of stability, we will define two sets:
 
-$\Omega =\{\chi| x^2+y^2 <R^2, u=v=r=0\}$
+$\Omega =\{\chi| (x-x_r)^2+(y-y_r)^2 <R^2, u=v=r=0\}$
 
 $\Omega_r =\{\chi| (x-x_r)^2+(y-y_r)^2 < R_f^2\}$
 
@@ -136,7 +138,7 @@ The set $\Omega$ defines the possible initial conditions considered in the optim
 
 In this example, we will use $R=100m$ and $R_f=3m$
 
-Notice that, for the optimisation problem to be feasible, $R_f$ must be chosen appropiately, in our case we choose $R_f=3m$ because the reference controller (with parameters $a_1=30$, $a_2=60$ and $\Delta \psi =-63\pi/180$) is able to drive the vehicle to this set.
+Notice that, for the optimisation problem to be feasible, $R_f$ must be chosen appropiately, in our case we choose $R_f=3m$ because the reference controller (with parameters $a_1=30$, $a_2=60$ and $\Delta \psi =-63\pi/180$, controller $C_3$) is able to drive the vehicle to this set.
 
 """
 
@@ -260,7 +262,7 @@ Notice that the normalisation has two purposes:
 x0w=[70.26, 70.26, 5.14, 0, 0, 0]
 
 # ╔═╡ e160754f-6894-462f-8550-209f818b485f
-function position_control(x,y,ψ,u,v,r,t,θ,sp)
+function position_control(x,y,ψ,u,v,r,t,θ,sp) # Controller C3
 	a1,a2,Δψ=θ # Get the values of the parameters
 	a0=(a1+a2)/2
 	Δa=(a2-a1)/2
@@ -322,6 +324,59 @@ Again, it is important to choose values that are feasible, in this case these va
 # ╔═╡ 8829a36c-266e-40a7-9098-dc7ad3c65d64
 md"As the figure shows, the trajectory does not enter $\Omega_r$ in time $t_f$:"
 
+# ╔═╡ cc0a02d6-285a-4eb7-8566-688c276e0bdf
+md"""# Why does it work?
+The main idea is that the Fourier series + saturation is able to approximate pretty well the original control law, even for N=1. To see why, consider $b_0=2a_0$, $c_1=κcos(Δψ)$, $b_1=κsin(Δψ)$, $a_{pmin}=a_0-\Delta a$ and $a_{pmax}=a_0+\Delta a$. Then
+
+$h=a_0 + \kappa cos(\Delta\psi) sin (𝛼) + \kappa   sin (\Delta\psi)  cos (\alpha)=a_0 + \kappa sin(\alpha+\Delta\psi)$
+
+Now, if $sin(\alpha+\Delta\psi)>0$ and $\kappa$ is big enough, the function will saturate on $a_0+\Delta a$ and if $sin(\alpha+\Delta\psi)<0$ it will saturate on $a_0-\Delta a$, as the original controller does. The only values where the approximation is poor is when $sin(\alpha+\Delta\psi)=0$
+
+"""
+
+# ╔═╡ 151caa09-35c5-48d8-b357-4c1dcaceab72
+@bind κ Slider(1.0:1:100, default=80, show_value=true)
+
+# ╔═╡ 34b6e101-37ff-480d-a78c-7dd46e6768d8
+let
+	
+a0=45
+Δψ=63*pi/180
+Δa=15
+apmin=a0-Δa
+apmax=a0+Δa
+
+α=0:0.01:2*pi
+
+#ref controller
+a_p1=a0.+Δa*sign.(sin.(α.+Δψ))  
+plot(α,a_p1, label="C1",xlabel=L"\alpha",ylabel=L"a_p")
+
+#Fourier for N=1
+    #kappa=10
+b0=2a0
+c1=10*cos(Δψ)
+b1=10*sin(Δψ)
+
+h=b0/2 .+b1*cos.(α) +  c1*sin.(α)
+a_p2=min.(apmax,max.(apmin, h))
+plot!(α,a_p2, label="Fourier κ=10.0")
+
+#kappa=20
+c1=20*cos(Δψ)
+b1=20*sin(Δψ)
+h2=b0/2 .+b1*cos.(α) +  c1*sin.(α)
+a_p3=min.(apmax,max.(apmin, h2))
+plot!(α,a_p3, label="Fourier κ=20.0")
+
+#kappa=value provided by the user
+c1=κ*cos(Δψ)
+b1=κ*sin(Δψ)
+h3=b0/2 .+b1*cos.(α) +  c1*sin.(α)
+a_p4=min.(apmax,max.(apmin, h3))
+plot!(α,a_p4, label="Fourier κ=$κ")
+end
+
 # ╔═╡ 5a6ad0a6-9402-4b8c-997f-69ebbb2bf73a
 md"""## Time to play
 We have optimised the cost for several values of $\lambda$ and the best results are:
@@ -351,6 +406,57 @@ end
 md"""
 Now, change $\lambda$ to see the trade-off between converging fast to the recovery point and reducing the energy consumption:
 """
+
+# ╔═╡ 1038d5ce-8aeb-4d8f-bbb0-0514fc34e7b1
+@bind λ Slider(0.05:0.05:0.95 ; default=0.5, show_value=true)
+
+# ╔═╡ 65efcc7e-d127-4a71-9412-3a774b46b507
+function select_coef(λ)
+	# Select the appropriate values for this lambda
+	index=Int(round(λ/0.05))
+	return op_coeficients[:,index]
+end
+
+# ╔═╡ f607f9ed-6bb3-4eff-b69f-6d32e04b43bc
+coef_op=select_coef(λ)
+
+# ╔═╡ 64cb1add-744c-42fc-90ca-ef6817bc2fc0
+function fourier_control(x,y,ψ,u,v,r,t,θ,sp)
+	xr,yr=sp
+    a_s=0.0 # BROKEN ACTUATOR
+	ψ_r=atan(yr-y,xr-x)
+	
+	α=ψ - ψ_r
+    # Fourier series of the relative angle alpha
+    a_cos=0.0;
+    a_sin=0.0;
+    for j=2:2:(length(θ)-1)
+        a_cos+= θ[j]*cos((j/2)*α);
+        a_sin+= θ[j+1]*sin((j/2)*α);
+    end
+    a=θ[1]/2 + a_cos + a_sin;
+    
+	a_max=60.0; # Saturation
+    a_p=min(a_max,max(-a_max,a));
+	
+    return (a_s,a_p)
+end
+
+# ╔═╡ faa44634-49c8-43dc-8600-77b93e6ce15b
+begin
+	X0=x0w
+    #X0=[-20.0,-20.0,0.0,0.0,0.0,0.0,0.0]# X02. You could change if you wish
+end
+
+# ╔═╡ fc5cb1e1-a142-4bea-a0c4-dbccb78e77ec
+# Controller C7a for lambda=0.15 and controller C7b for lambda=0.85
+
+# ╔═╡ b959045e-ce5b-45aa-a9f0-540a18c1c2de
+# If you want to save the last figure, uncomment this line:
+#savefig("figs.pdf")
+
+# ╔═╡ 404081d7-7691-4d7c-a65e-4e83224c1749
+# Apply some current and see what happens
 
 # ╔═╡ b212918a-0325-4691-b464-22ab12aa30cb
 @bind vy_current Slider(0:0.001:0.07, default=0, show_value=true)
@@ -413,51 +519,6 @@ function J(dt,x,y,sp,u,r,ap,λ)
 	return (1-λ)JISE/Jref_ISE + λ*JE/Jref_E
 end
 
-# ╔═╡ 60aaed79-479c-4d4a-bfcf-03ec77b71ad6
-restriction(x_base,y_base) # The reference controller is not fast enough
-
-# ╔═╡ 65efcc7e-d127-4a71-9412-3a774b46b507
-function select_coef(λ)
-	# Select the appropriate values for this lambda
-	index=Int(round(λ/0.05))
-	return op_coeficients[:,index]
-end
-
-# ╔═╡ 64cb1add-744c-42fc-90ca-ef6817bc2fc0
-function fourier_control(x,y,ψ,u,v,r,t,θ,sp)
-	xr,yr=sp
-    a_s=0.0 # BROKEN ACTUATOR
-	ψ_r=atan(yr-y,xr-x)
-	
-	α=ψ - ψ_r
-    # Fourier series of the relative angle alpha
-    a_cos=0.0;
-    a_sin=0.0;
-    for j=2:2:(length(θ)-1)
-        a_cos+= θ[j]*cos((j/2)*α);
-        a_sin+= θ[j+1]*sin((j/2)*α);
-    end
-    a=θ[1]/2 + a_cos + a_sin;
-    
-	a_max=60.0; # Saturation
-    a_p=min(a_max,max(-a_max,a));
-	
-    return (a_s,a_p)
-end
-
-# ╔═╡ faa44634-49c8-43dc-8600-77b93e6ce15b
-begin
-	X0=x0w
-    #X0=[-20.0,-20.0,0.0,0.0,0.0,0.0,0.0]# You could change if you wish
-end
-
-# ╔═╡ b959045e-ce5b-45aa-a9f0-540a18c1c2de
-# If you want to save the last figure, uncomment this line:
-#savefig("figs.pdf")
-
-# ╔═╡ 1038d5ce-8aeb-4d8f-bbb0-0514fc34e7b1
-@bind λ Slider(0.05:0.05:0.95 ; default=0.5, show_value=true)
-
 # ╔═╡ e11b958e-fb9b-4811-9922-089c3e7aacae
 function show_figure(now,dt,Tf,control,θ,sp)
 	
@@ -509,13 +570,13 @@ end
 
 
 # ╔═╡ 6d3e390b-7677-4494-a76b-adeaf21f31ba
-show_figure(tf,dt,Tf,position_control,[30 60 -63*pi/180],set_point)
-
-# ╔═╡ f607f9ed-6bb3-4eff-b69f-6d32e04b43bc
-coef_op=select_coef(λ)
+show_figure(tf,dt,Tf,position_control,[30 60 -63*pi/180],set_point) #Controller C3
 
 # ╔═╡ c9d19fe0-c247-4eb5-a290-5f9f2b7ea24b
 show_figure(tf,dt,Tf,fourier_control,coef_op,set_point)
+
+# ╔═╡ 60aaed79-479c-4d4a-bfcf-03ec77b71ad6
+restriction(x_base,y_base) # The reference controller is not fast enough
 
 # ╔═╡ a7f24817-692e-4915-801e-38631feeee48
 begin
@@ -567,18 +628,18 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 LaTeXStrings = "~1.4.0"
-Plots = "~1.38.16"
+Plots = "~1.40.13"
 PlutoTeachingTools = "~0.4.7"
-PlutoUI = "~0.7.51"
+PlutoUI = "~0.7.79"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.3"
+julia_version = "1.11.6"
 manifest_format = "2.0"
-project_hash = "eb3a1ec1fd19ff7589f21787a7ee9db864416bd6"
+project_hash = "76e18bbb3234a611cf4c2392e63c0e193c68a631"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -594,13 +655,15 @@ version = "1.1.3"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
-version = "1.1.1"
+version = "1.1.2"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+version = "1.11.0"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+version = "1.11.0"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "0691e34b3bb8be9307330f88d1a3c3f25466c24d"
@@ -615,9 +678,9 @@ version = "1.0.9+0"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "fde3bf89aead2e723284a8ff9cdf5b551ed700e8"
+git-tree-sha1 = "a21c5464519504e41e0cbc91f0188e8ca23d7440"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
-version = "1.18.5+0"
+version = "1.18.5+1"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -636,12 +699,10 @@ deps = ["FixedPointNumbers", "Random"]
 git-tree-sha1 = "67e11ee83a43eb71ddc950302c53bf33f0690dfe"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
 version = "0.12.1"
+weakdeps = ["StyledStrings"]
 
     [deps.ColorTypes.extensions]
     StyledStringsExt = "StyledStrings"
-
-    [deps.ColorTypes.weakdeps]
-    StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 
 [[deps.ColorVectorSpace]]
 deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statistics", "TensorCore"]
@@ -668,9 +729,9 @@ version = "1.1.1+0"
 
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
-git-tree-sha1 = "d9d26935a0bcffc87d2613ce14c527c99fc543fd"
+git-tree-sha1 = "21d088c496ea22914fe80906eb5bce65755e5ec8"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
-version = "2.5.0"
+version = "2.5.1"
 
 [[deps.Contour]]
 git-tree-sha1 = "439e35b0b36e2e5881738abc8857bd92ad6ff9a8"
@@ -691,6 +752,7 @@ version = "0.19.3"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+version = "1.11.0"
 
 [[deps.Dbus_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl"]
@@ -739,13 +801,14 @@ uuid = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
 version = "0.4.5"
 
 [[deps.FFMPEG_jll]]
-deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
+deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libva_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
 git-tree-sha1 = "01ba9d15e9eae375dc1eb9589df76b3572acd3f2"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "8.0.1+0"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+version = "1.11.0"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -783,16 +846,16 @@ uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.4.1+0"
 
 [[deps.GR]]
-deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "27442171f28c952804dede8ff72828a96f2bfc1f"
+deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Preferences", "Printf", "Qt6Wayland_jll", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "p7zip_jll"]
+git-tree-sha1 = "7ffa4049937aeba2e5e1242274dc052b0362157a"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.10"
+version = "0.73.14"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "025d171a2847f616becc0f84c8dc62fe18f0f6dd"
+git-tree-sha1 = "98fc192b4e4b938775ecd276ce88f539bcec358e"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.10+0"
+version = "0.73.14+0"
 
 [[deps.GettextRuntime_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll"]
@@ -856,6 +919,7 @@ version = "1.0.0"
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+version = "1.11.0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "b2d91fe939cae05960e760110b328288867b5758"
@@ -899,10 +963,10 @@ uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.3+0"
 
 [[deps.LERC_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "aaafe88dccbd957a8d82f7d05be9b69172e0cee3"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
-version = "3.0.0+1"
+version = "4.0.1+0"
 
 [[deps.LLVMOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -947,16 +1011,17 @@ version = "0.6.4"
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "8.4.0+0"
+version = "8.6.0+0"
 
 [[deps.LibGit2]]
 deps = ["Base64", "LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
+version = "1.11.0"
 
 [[deps.LibGit2_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll"]
 uuid = "e37daf67-58a4-590a-8e99-b0245dd2ffc5"
-version = "1.6.4+0"
+version = "1.7.2+0"
 
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
@@ -965,6 +1030,7 @@ version = "1.11.0+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+version = "1.11.0"
 
 [[deps.Libffi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -992,9 +1058,9 @@ version = "2.41.3+0"
 
 [[deps.Libtiff_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "LERC_jll", "Libdl", "XZ_jll", "Zlib_jll", "Zstd_jll"]
-git-tree-sha1 = "2da088d113af58221c52828a80378e16be7d037a"
+git-tree-sha1 = "4ab7581296671007fc33f07a721631b8855f4b1d"
 uuid = "89763e89-9b03-5906-acba-b20f662cd828"
-version = "4.5.1+1"
+version = "4.7.1+0"
 
 [[deps.Libuuid_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1005,6 +1071,7 @@ version = "2.41.3+0"
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+version = "1.11.0"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
@@ -1024,6 +1091,7 @@ version = "0.3.29"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+version = "1.11.0"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
@@ -1044,6 +1112,7 @@ version = "0.5.16"
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
+version = "1.11.0"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "NetworkOptions", "Random", "Sockets"]
@@ -1054,7 +1123,7 @@ version = "1.1.9"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.28.2+1"
+version = "2.28.6+0"
 
 [[deps.Measures]]
 git-tree-sha1 = "b513cedd20d9c914783d8ad83d08120702bf2c77"
@@ -1069,10 +1138,11 @@ version = "1.2.0"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
+version = "1.11.0"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2023.1.10"
+version = "2023.12.12"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -1093,12 +1163,12 @@ version = "1.3.6+0"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.23+4"
+version = "0.3.27+1"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.5+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "NetworkOptions", "OpenSSL_jll", "Sockets"]
@@ -1147,9 +1217,13 @@ uuid = "30392449-352a-5448-841d-b1acce4e97dc"
 version = "0.44.2+0"
 
 [[deps.Pkg]]
-deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
+deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "Random", "SHA", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.10.0"
+version = "1.11.0"
+weakdeps = ["REPL"]
+
+    [deps.Pkg.extensions]
+    REPLExt = "REPL"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
@@ -1164,10 +1238,10 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.4"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "TOML", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
+git-tree-sha1 = "809ba625a00c605f8d00cd2a9ae19ce34fc24d68"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.17"
+version = "1.40.13"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1210,25 +1284,46 @@ version = "1.5.1"
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+version = "1.11.0"
 
 [[deps.PtrArrays]]
-git-tree-sha1 = "1d36ef11a9aaf1e8b74dacc6a731dd1de8fd493d"
+git-tree-sha1 = "4fbbafbc6251b883f4d2705356f3641f3652a7fe"
 uuid = "43287f4e-b6f4-7ad1-bb20-aadabca52c3d"
-version = "1.3.0"
+version = "1.4.0"
 
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Vulkan_Loader_jll", "Xorg_libSM_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_cursor_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "libinput_jll", "xkbcommon_jll"]
-git-tree-sha1 = "37b7bb7aabf9a085e0044307e1717436117f2b3b"
+git-tree-sha1 = "492601870742dcd38f233b23c3ec629628c1d724"
 uuid = "c0090381-4147-56d7-9ebc-da0b1113ec56"
-version = "6.5.3+1"
+version = "6.7.1+1"
+
+[[deps.Qt6Declarative_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Qt6Base_jll", "Qt6ShaderTools_jll"]
+git-tree-sha1 = "e5dd466bf2569fe08c91a2cc29c1003f4797ac3b"
+uuid = "629bc702-f1f5-5709-abd5-49b8460ea067"
+version = "6.7.1+2"
+
+[[deps.Qt6ShaderTools_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Qt6Base_jll"]
+git-tree-sha1 = "1a180aeced866700d4bebc3120ea1451201f16bc"
+uuid = "ce943373-25bb-56aa-8eca-768745ed7b5a"
+version = "6.7.1+1"
+
+[[deps.Qt6Wayland_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Qt6Base_jll", "Qt6Declarative_jll"]
+git-tree-sha1 = "729927532d48cf79f49070341e1d918a65aba6b0"
+uuid = "e99dba38-086e-5de3-a5b1-6e4c66e897c3"
+version = "6.7.1+1"
 
 [[deps.REPL]]
-deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
+deps = ["InteractiveUtils", "Markdown", "Sockets", "StyledStrings", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+version = "1.11.0"
 
 [[deps.Random]]
 deps = ["SHA"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+version = "1.11.0"
 
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
@@ -1271,6 +1366,7 @@ version = "1.3.0"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+version = "1.11.0"
 
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1285,6 +1381,7 @@ version = "1.2.0"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
+version = "1.11.0"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
@@ -1295,7 +1392,7 @@ version = "1.2.2"
 [[deps.SparseArrays]]
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-version = "1.10.0"
+version = "1.11.0"
 
 [[deps.StableRNGs]]
 deps = ["Random"]
@@ -1304,9 +1401,14 @@ uuid = "860ef19b-820b-49d6-a774-d7a799459cd3"
 version = "1.0.4"
 
 [[deps.Statistics]]
-deps = ["LinearAlgebra", "SparseArrays"]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "ae3bb1eb3bba077cd276bc5cfc337cc65c3075c0"
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-version = "1.10.0"
+version = "1.11.1"
+weakdeps = ["SparseArrays"]
+
+    [deps.Statistics.extensions]
+    SparseArraysExt = ["SparseArrays"]
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
@@ -1322,9 +1424,9 @@ version = "0.34.10"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "9297459be9e338e546f5c4bedb59b3b5674da7f1"
+git-tree-sha1 = "28145feabf717c5d65c1d5e09747ee7b1ff3ed13"
 uuid = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
-version = "2.6.2"
+version = "2.6.3"
 
     [deps.StructUtils.extensions]
     StructUtilsMeasurementsExt = ["Measurements"]
@@ -1334,10 +1436,14 @@ version = "2.6.2"
     Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
     Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 
+[[deps.StyledStrings]]
+uuid = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
+version = "1.11.0"
+
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
-version = "7.2.1+1"
+version = "7.7.0+0"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1358,6 +1464,7 @@ version = "0.1.1"
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+version = "1.11.0"
 
 [[deps.TranscodingStreams]]
 git-tree-sha1 = "0c45878dcfdcfa8480052b6ab162cdd138781742"
@@ -1377,9 +1484,11 @@ version = "1.6.1"
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+version = "1.11.0"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+version = "1.11.0"
 
 [[deps.UnicodeFun]]
 deps = ["REPL"]
@@ -1448,9 +1557,9 @@ version = "1.2.6+0"
 
 [[deps.Xorg_libX11_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libxcb_jll", "Xorg_xtrans_jll"]
-git-tree-sha1 = "b5899b25d17bf1889d25906fb9deed5da0c15b3b"
+git-tree-sha1 = "808090ede1d41644447dd5cbafced4731c56bd2f"
 uuid = "4f6342f7-b3d2-589e-9d20-edeb45f2b2bc"
-version = "1.8.12+0"
+version = "1.8.13+0"
 
 [[deps.Xorg_libXau_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1472,9 +1581,9 @@ version = "1.1.6+0"
 
 [[deps.Xorg_libXext_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
-git-tree-sha1 = "a4c0ee07ad36bf8bbce1c3bb52d21fb1e0b987fb"
+git-tree-sha1 = "1a4a26870bf1e5d26cd585e38038d399d7e65706"
 uuid = "1082639a-0dae-5f34-9b06-72781eeb8cb3"
-version = "1.3.7+0"
+version = "1.3.8+0"
 
 [[deps.Xorg_libXfixes_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
@@ -1490,21 +1599,27 @@ version = "1.8.3+0"
 
 [[deps.Xorg_libXinerama_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll"]
-git-tree-sha1 = "a5bc75478d323358a90dc36766f3c99ba7feb024"
+git-tree-sha1 = "0ba01bc7396896a4ace8aab67db31403c71628f4"
 uuid = "d1454406-59df-5ea1-beac-c340f2130bc3"
-version = "1.1.6+0"
+version = "1.1.7+0"
 
 [[deps.Xorg_libXrandr_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXext_jll", "Xorg_libXrender_jll"]
-git-tree-sha1 = "aff463c82a773cb86061bce8d53a0d976854923e"
+git-tree-sha1 = "6c174ef70c96c76f4c3f4d3cfbe09d018bcd1b53"
 uuid = "ec84b674-ba8e-5d96-8ba1-2a689ba10484"
-version = "1.5.5+0"
+version = "1.5.6+0"
 
 [[deps.Xorg_libXrender_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
 git-tree-sha1 = "7ed9347888fac59a618302ee38216dd0379c480d"
 uuid = "ea2f1a96-1ddc-540d-b46f-429655e07cfa"
 version = "0.9.12+0"
+
+[[deps.Xorg_libpciaccess_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
+git-tree-sha1 = "4909eb8f1cbf6bd4b1c30dd18b2ead9019ef2fad"
+uuid = "a65dc6b1-eb27-53a1-bb3e-dea574b5389e"
+version = "0.18.1+0"
 
 [[deps.Xorg_libxcb_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXau_jll", "Xorg_libXdmcp_jll"]
@@ -1514,9 +1629,9 @@ version = "1.17.1+0"
 
 [[deps.Xorg_libxkbfile_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
-git-tree-sha1 = "e3150c7400c41e207012b41659591f083f3ef795"
+git-tree-sha1 = "ed756a03e95fff88d8f738ebc2849431bdd4fd1a"
 uuid = "cc61e674-0454-545c-8b26-ed2c68acab7a"
-version = "1.1.3+0"
+version = "1.2.0+0"
 
 [[deps.Xorg_xcb_util_cursor_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_jll", "Xorg_xcb_util_renderutil_jll"]
@@ -1610,13 +1725,19 @@ version = "0.17.4+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.8.0+1"
+version = "5.11.0+0"
 
 [[deps.libdecor_jll]]
 deps = ["Artifacts", "Dbus_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pango_jll", "Wayland_jll", "xkbcommon_jll"]
 git-tree-sha1 = "9bf7903af251d2050b467f76bdbe57ce541f7f4f"
 uuid = "1183f4f0-6f2a-5f1a-908b-139f9cdfea6f"
 version = "0.2.2+0"
+
+[[deps.libdrm_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libpciaccess_jll"]
+git-tree-sha1 = "63aac0bcb0b582e11bad965cef4a689905456c03"
+uuid = "8e53e030-5e6c-5a89-a30b-be5b7263a166"
+version = "2.4.125+1"
 
 [[deps.libevdev_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1638,9 +1759,15 @@ version = "1.28.1+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "6ab498eaf50e0495f89e7a5b582816e2efb95f64"
+git-tree-sha1 = "e015f211ebb898c8180887012b938f3851e719ac"
 uuid = "b53b4c65-9356-5827-b1ea-8c7a1a84506f"
-version = "1.6.54+0"
+version = "1.6.55+0"
+
+[[deps.libva_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll", "Xorg_libXext_jll", "Xorg_libXfixes_jll", "libdrm_jll"]
+git-tree-sha1 = "7dbf96baae3310fe2fa0df0ccbb3c6288d5816c9"
+uuid = "9a156e7d-b971-5f62-b2c9-67348b8fb97c"
+version = "2.23.0+0"
 
 [[deps.libvorbis_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll"]
@@ -1657,7 +1784,7 @@ version = "1.1.7+0"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.52.0+1"
+version = "1.59.0+0"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1718,17 +1845,22 @@ version = "1.13.0+0"
 # ╠═60aaed79-479c-4d4a-bfcf-03ec77b71ad6
 # ╟─8829a36c-266e-40a7-9098-dc7ad3c65d64
 # ╠═6d3e390b-7677-4494-a76b-adeaf21f31ba
+# ╟─cc0a02d6-285a-4eb7-8566-688c276e0bdf
+# ╠═151caa09-35c5-48d8-b357-4c1dcaceab72
+# ╟─34b6e101-37ff-480d-a78c-7dd46e6768d8
 # ╟─5a6ad0a6-9402-4b8c-997f-69ebbb2bf73a
 # ╟─17c6b93f-3820-4957-b9a4-055e6092c212
 # ╟─8db37db2-116f-4d71-ba01-495d8a584a98
-# ╠═b212918a-0325-4691-b464-22ab12aa30cb
+# ╠═1038d5ce-8aeb-4d8f-bbb0-0514fc34e7b1
 # ╠═65efcc7e-d127-4a71-9412-3a774b46b507
 # ╠═f607f9ed-6bb3-4eff-b69f-6d32e04b43bc
 # ╟─64cb1add-744c-42fc-90ca-ef6817bc2fc0
 # ╠═faa44634-49c8-43dc-8600-77b93e6ce15b
 # ╠═c9d19fe0-c247-4eb5-a290-5f9f2b7ea24b
+# ╠═fc5cb1e1-a142-4bea-a0c4-dbccb78e77ec
 # ╠═b959045e-ce5b-45aa-a9f0-540a18c1c2de
-# ╟─1038d5ce-8aeb-4d8f-bbb0-0514fc34e7b1
 # ╟─a7f24817-692e-4915-801e-38631feeee48
+# ╠═404081d7-7691-4d7c-a65e-4e83224c1749
+# ╠═b212918a-0325-4691-b464-22ab12aa30cb
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

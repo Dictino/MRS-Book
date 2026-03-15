@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.3
+# v0.20.20
 
 using Markdown
 using InteractiveUtils
@@ -7,7 +7,7 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     #! format: off
-    quote
+    return quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
@@ -221,7 +221,7 @@ That's all: this simple two-liner control is able to drive the vehicle close to 
 """
 
 # ╔═╡ b6008dfb-d7c4-4158-b3ae-4b1c294cfb54
-function position_control(x,y,ψ,u,v,r,t)
+function position_control(x,y,ψ,u,v,r,t) # Controller C1
 	xr,yr=set_point
     a_s=0.0 # BROKEN ACTUATOR
 	ψ_r=atan(yr-y,xr-x)
@@ -246,9 +246,9 @@ md"For example, here we add a constant current as a disturbance.
 **Note:** It is better to not set this until the previous control is well tuned, otherwise it will be more difficult to understand what is happening in the previous sections."
 
 # ╔═╡ be7d937c-2a46-49fe-bc66-49c650f7efb0
-X0=[-20.0,10.0,0.0,0.0,0.0,0.0]
-#X0=[-20.0,-20.0,0.0,0.0,0.0,0.0] # Some interesting things to try
-#X0=[20.0,10.0,-pi/2,1.0,1.0,1.0] 
+X0=[-20.0,10.0,0.0,0.0,0.0,0.0] # X01
+#X0=[-20.0,-20.0,0.0,0.0,0.0,0.0] # X02. Some interesting things to try
+#X0=[20.0,10.0,-pi/2,1.0,1.0,1.0] # X03
 
 # ╔═╡ b212918a-0325-4691-b464-22ab12aa30cb
 @bind vy_current Slider(0:0.001:0.07, default=0, show_value=true)
@@ -344,13 +344,13 @@ show_figure(t2,dt,Tf2,asymmetric_control)
 show_figure(t2,dt,Tf2,course_control)
 
 # ╔═╡ 49840eeb-9df4-498b-a626-c882b4f6249a
-show_figure(t3,dt,Tf3,position_control)
+show_figure(t3,dt,Tf3,position_control) # Controller C1
 
 # ╔═╡ 9e874c9e-0a4e-4349-884f-f306fe637441
 # As the speed of the current increases, you must also increase the simulation time so that the vehicle can reach the setpoint.
 
 # ╔═╡ ffc8a420-29cb-4143-a65f-b20995c5551b
-show_figure(t3,dt,Tf3,position_control)
+show_figure(t3,dt,Tf3,position_control) 
 
 # ╔═╡ e8f3976f-b46c-4203-9bda-70de15fd9199
 md"""# What happens if the portside actuator fails?
@@ -367,7 +367,7 @@ Now, as you can see, the controller works the same, but the vehicle just turns c
 """
 
 # ╔═╡ 7b289c9b-5532-4f59-b16d-6228fc7e06ef
-function position_control2(x,y,ψ,u,v,r,t)
+function position_control2(x,y,ψ,u,v,r,t) # Controller C2
 	xr,yr=set_point	
 	ψ_r=atan(yr-y,xr-x)
     a_s=a0+Δa*sign(sin(ψ_r-ψ+Δψ)) 
@@ -376,7 +376,7 @@ function position_control2(x,y,ψ,u,v,r,t)
 end
 
 # ╔═╡ 76109f9b-bc18-494e-85af-ebb283bbee01
-show_figure(t3,dt,Tf3,position_control2)
+show_figure(t3,dt,Tf3,position_control2) # Controller C2
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -395,7 +395,7 @@ PlutoUI = "~0.7.79"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.1"
+julia_version = "1.11.6"
 manifest_format = "2.0"
 project_hash = "7c6dbcd69ddefb68aa0235b4f552b6c5c7436f57"
 
@@ -926,7 +926,7 @@ version = "0.3.27+1"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.5+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "NetworkOptions", "OpenSSL_jll", "Sockets"]
