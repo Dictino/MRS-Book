@@ -2,4 +2,4 @@
 
 These examples are developed in the Julia programming language in the form of a Pluto notebook, if you what to run locally download the notebook RMS-Example_x.jl and see https://plutojl.org/ for instructions on how to install Pluto and run a notebook.
 
-The results shonwn on the chapter were obtained with the release 1.0 usign julia version  "1.11.1"
+The results shonwn on the chapter were obtained with the release 1.0 usign julia version  "1.11.6"
